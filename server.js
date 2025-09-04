@@ -64,6 +64,25 @@ app.post('/api/create-document', upload.single('document'), async (req, res) => 
             return res.status(400).json({ error: 'Document file is required.' });
         }
 
+        const requiredEnv = {
+            DOCUMENSO_API_URL,
+            DOCUMENSO_API_KEY,
+            S3_ENDPOINT,
+            S3_BUCKET,
+            S3_ACCESS_KEY,
+            S3_SECRET_KEY,
+            MINIO_PUBLIC_URL,
+        };
+        const missingEnv = Object.entries(requiredEnv)
+            .filter(([, value]) => !value)
+            .map(([key]) => key);
+
+        if (missingEnv.length) {
+            const message = `Missing environment variables: ${missingEnv.join(', ')}`;
+            console.error(message);
+            return res.status(500).json({ error: message });
+        }
+
         // 1. Upload file to MinIO (S3)
         const fileName = generateFileName() + path.extname(documentFile.originalname);
         const putObjectParams = {
@@ -126,13 +145,13 @@ app.post('/api/create-document', upload.single('document'), async (req, res) => 
             console.error('Data:', error.response.data);
             console.error('Status:', error.response.status);
             console.error('Headers:', error.response.headers);
-             res.status(500).json({ error: 'An API error occurred.', details: error.response.data });
+            return res.status(500).json({ error: 'An API error occurred.', details: error.response.data });
         } else if (error.request) {
             console.error('Request:', error.request);
-             res.status(500).json({ error: 'The request was made but no response was received.' });
+            return res.status(500).json({ error: 'The request was made but no response was received.' });
         } else {
-            console.error('Error', error.message);
-             res.status(500).json({ error: 'An unexpected error occurred.', details: error.message });
+            console.error('Error', error.message || error);
+            return res.status(500).json({ error: 'An unexpected error occurred.', details: error.message || String(error) });
         }
     }
 });
